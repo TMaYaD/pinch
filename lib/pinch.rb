@@ -19,8 +19,8 @@ class Pinch
   #
   #  puts Pinch.get('http://peterhellberg.github.com/pinch/test.zip', 'data.json')
   #
-  def self.get(url, file_name)
-    new(url).get(file_name)
+  def self.get(url, file_name, &block)
+    new(url).get(file_name, &block)
   end
 
   ##
@@ -76,8 +76,8 @@ class Pinch
   #
   # @note You might want to use Pinch.get instead
   #
-  def get(file_name)
-    local_file(file_name)
+  def get(file_name, &block)
+    local_file(file_name, &block)
   end
 
   ##
@@ -137,19 +137,39 @@ private
                    file_headers[file_name][11] +
                    file_headers[file_name][12]
 
-    response = fetch_data(offset_start, offset_end)
+    if block_given?
+      fetch_data(offset_start, offset_end) do |response|
+        local_file_header = nil
+        offset = nil
+        length = nil
 
-    local_file_header = response.body.unpack('VvvvvvVVVvv')
-    file_data         = response.body[30+local_file_header[9]+local_file_header[10]..-1]
-
-    if local_file_header[3] == 0
-      # Uncompressed file
-      offset = 30+local_file_header[9]+local_file_header[10]
-      response.body[offset..(offset+local_file_header[8]-1)]
+        response.read_body do |chunk|
+          unless local_file_header # First chunk
+            local_file_header = response.body.unpack('VvvvvvVVVvv')
+            offset = 30+local_file_header[9]+local_file_header[10]
+            length = local_file_header[ local_file_header[3] == 0 ? 8 : 7 ]
+          end
+          if s = chunk[[0, offset].max, [length, chunk.length].min]
+            yield Zlib::Inflate.new(-Zlib::MAX_WBITS).inflate(s)
+          end
+          offset -= chunk.length
+          length -= chunk.length
+        end
+      end
     else
-      # Compressed file
-      file_data = response.body[30+local_file_header[9]+local_file_header[10]..-1]
-      Zlib::Inflate.new(-Zlib::MAX_WBITS).inflate(file_data)
+      response = fetch_data(offset_start, offset_end)
+
+      local_file_header = response.body.unpack('VvvvvvVVVvv')
+      offset = 30+local_file_header[9]+local_file_header[10]
+
+      if local_file_header[3] == 0
+        # Uncompressed file
+        response.body[offset..(offset+local_file_header[8]-1)]
+      else
+        # Compressed file
+        file_data = response.body[offset..(offset+local_file_header[7]-1)]
+        Zlib::Inflate.new(-Zlib::MAX_WBITS).inflate(file_data)
+      end
     end
   end
 
@@ -237,10 +257,10 @@ private
 
   ##
   # Get range of data from URL
-  def fetch_data(offset_start, offset_end)
+  def fetch_data(offset_start, offset_end, &block)
     request = Net::HTTP::Get.new(@uri.request_uri)
     request.set_range(offset_start, offset_end)
-    connection(@uri).request(request)
+    connection(@uri).request(request, &block)
   end
 
   ##

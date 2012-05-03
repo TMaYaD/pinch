@@ -82,6 +82,15 @@ describe Pinch do
       end
     end
 
+    it "should yield to the block with the contents of the file data.json" do
+      block = MiniTest::Mock.new
+      block.expect :call, @data, [@data]
+      VCR.use_cassette('test_zip') do
+        Pinch.get(@url, @file) { |data| block.call data }
+      end
+      block.verify
+    end
+
     it "should retrieve the contents of the file data.json when passed a HTTPS url" do
       VCR.use_cassette('ssl_test') do
         @url  = 'https://dl.dropbox.com/u/2230186/pinch_test.zip'
