@@ -82,11 +82,13 @@ describe Pinch do
       end
     end
 
-    it "should yield to the block with the contents of the file data.json" do
+    it "should yield to the block with the IO like object that reads out the contents of the file data.json" do
       block = MiniTest::Mock.new
-      block.expect :call, @data, [@data]
+      block.expect :call, '', [@data]
       VCR.use_cassette('test_zip') do
-        Pinch.get(@url, @file) { |data| block.call data }
+        Pinch.get(@url, @file) do |reader|
+          block.call reader.read(114)
+        end
       end
       block.verify
     end
