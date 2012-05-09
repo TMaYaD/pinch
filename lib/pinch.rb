@@ -140,24 +140,31 @@ private
     if block_given?
       piper, pipew = IO.pipe
       Thread.new do
-        fetch_data(offset_start, offset_end) do |response|
-          local_file_header = nil
-          length = nil
-          response.read_body do |chunk|
-            unless local_file_header #first chunk
-              local_file_header = chunk.unpack('VvvvvvVVVvv')
-              offset = 30+local_file_header[9]+local_file_header[10]
-              length = local_file_header[local_file_header[3] == 0 ? 8 : 7]
-              chunk.slice! 0, offset
+        begin
+          fetch_data(offset_start, offset_end) do |response|
+            local_file_header = nil
+            length = nil
+            response.read_body do |chunk|
+              unless local_file_header #first chunk
+                local_file_header = chunk.unpack('VvvvvvVVVvv')
+                offset = 30+local_file_header[9]+local_file_header[10]
+                length = local_file_header[local_file_header[3] == 0 ? 8 : 7]
+                chunk.slice! 0, offset
+              end
+              pipew << Zlib::Inflate.new(-Zlib::MAX_WBITS).inflate(chunk.slice(0, length))
+              length -= chunk.length
             end
-            pipew << Zlib::Inflate.new(-Zlib::MAX_WBITS).inflate(chunk.slice(0, length))
-            length -= chunk.length
           end
+        ensure
           pipew.close
         end
       end
 
-      yield piper
+      begin
+        yield piper
+      ensure
+        piper.close
+      end
     else
       response = fetch_data(offset_start, offset_end)
 
