@@ -138,22 +138,13 @@ private
                    file_headers[file_name][12]
 
     if block_given?
-      fetch_data(offset_start, offset_end) do |response|
-        local_file_header = nil
-        offset = nil
-        length = nil
+      local_file_header = fetch_data(offset_start, offset_start+15).body.unpack('VvvvvvVVVvv')
+      file_offset = 30+local_file_header[9]+local_file_header[10]
+      file_length = local_file_header[ local_file_header[3] == 0 ? 8 : 7 ]
 
+      fetch_data(offset_start + file_offset, offset_start + file_offset + file_length) do |response|
         response.read_body do |chunk|
-          unless local_file_header # First chunk
-            local_file_header = response.body.unpack('VvvvvvVVVvv')
-            offset = 30+local_file_header[9]+local_file_header[10]
-            length = local_file_header[ local_file_header[3] == 0 ? 8 : 7 ]
-          end
-          if s = chunk[[0, offset].max, [length, chunk.length].min]
-            yield Zlib::Inflate.new(-Zlib::MAX_WBITS).inflate(s)
-          end
-          offset -= chunk.length
-          length -= chunk.length
+          yield Zlib::Inflate.new(-Zlib::MAX_WBITS).inflate(chunk)
         end
       end
     else
