@@ -144,6 +144,7 @@ private
           fetch_data(offset_start, offset_end) do |response|
             local_file_header = nil
             length = nil
+            zstream = Zlib::Inflate.new(-Zlib::MAX_WBITS)
             response.read_body do |chunk|
               unless local_file_header #first chunk
                 local_file_header = chunk.unpack('VvvvvvVVVvv')
@@ -151,7 +152,7 @@ private
                 length = local_file_header[local_file_header[3] == 0 ? 8 : 7]
                 chunk.slice! 0, offset
               end
-              pipew << Zlib::Inflate.new(-Zlib::MAX_WBITS).inflate(chunk.slice(0, length))
+              pipew << zstream.inflate(chunk.slice(0, length))
               length -= chunk.length
             end
           end
