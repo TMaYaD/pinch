@@ -156,6 +156,9 @@ private
               length -= chunk.length
             end
           end
+        rescue Exception => e
+          puts "error while fetching: #{e.message}"
+          e.backtrace.each { |l| $stderr.puts l }
         ensure
           pipew.close
         end
