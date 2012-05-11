@@ -138,13 +138,14 @@ private
                    file_headers[file_name][12]
 
     if block_given?
-      local_file_header = fetch_data(offset_start, offset_start+15).body.unpack('VvvvvvVVVvv')
+      local_file_header = fetch_data(offset_start, offset_start+30).body.unpack('VvvvvvVVVvv')
       file_offset = 30+local_file_header[9]+local_file_header[10]
       file_length = local_file_header[ local_file_header[3] == 0 ? 8 : 7 ]
+      zstream = Zlib::Inflate.new(-Zlib::MAX_WBITS)
 
       fetch_data(offset_start + file_offset, offset_start + file_offset + file_length) do |response|
         response.read_body do |chunk|
-          yield Zlib::Inflate.new(-Zlib::MAX_WBITS).inflate(chunk)
+          yield zstream.inflate(chunk)
         end
       end
     else
