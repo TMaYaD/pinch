@@ -208,12 +208,16 @@ private
       offset_start = end_of_central_directory_record[5]
       offset_end   = end_of_central_directory_record[5] + end_of_central_directory_record[4]
 
-      response = fetch_data(offset_start, offset_end)
-
-      if [200, 206].include?(response.code)
-        raise RuntimeError, "Couldn’t find the ZIP file (HTTP: #{response.code})"
+      if offset_start >= @last_4k_offset
+        @last_4k[offset_start - @last_4k_offset, end_of_central_directory_record[4]]
       else
-        response.body
+        response = fetch_data(offset_start, offset_end)
+
+        if [200, 206].include?(response.code)
+          raise RuntimeError, "Couldn’t find the ZIP file (HTTP: #{response.code})"
+        else
+          response.body
+        end
       end
     end
   end
@@ -229,13 +233,13 @@ private
 
     @end_of_central_directory_record ||= begin
       # Retrieve a 4k of data from the end of the zip file
-      offset = content_length >= 4096 ? content_length-4096 : 0
+      @last_4k_offset ||= content_length >= 4096 ? content_length-4096 : 0
 
-      response = fetch_data(offset, content_length)
+      @last_4k ||= fetch_data(@last_4k_offset, content_length).body
 
       # Unpack the body into a hex string then split on
       # the end record signature, and finally unpack the last one.
-      [response.body.
+      [@last_4k.
         unpack("H*")[0].
         split("504b0506").
         last[0...36]].
