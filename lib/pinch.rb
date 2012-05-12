@@ -158,7 +158,7 @@ private
           end
         rescue Exception => e
           puts "error while fetching: #{e.message}"
-          e.backtrace.each { |l| $stderr.puts l }
+          e.backtrace.each { |l| $stderr.puts l } if ENV['LOG_LEVEL'] == 'DEBUG'
         ensure
           pipew.close
         end
