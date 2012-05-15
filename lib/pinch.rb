@@ -157,7 +157,7 @@ private
                 begin
                   pipew << unzipped_chunk.force_encoding("UTF-8")
                 rescue Exception => e
-                  puts "error while parsing \"#{unzipped_chunk}\": #{e.class.name} : #{e.message}"
+                  puts "error while parsing \"#{unzipped_chunk[0,20]}\": #{e.class.name} : #{e.message}"
                   puts "#{length} more to be processed"
                   e.backtrace.each { |l| $stderr.puts l } if %w(WARN ERROR).include? ENV['LOG_LEVEL']
                 ensure
