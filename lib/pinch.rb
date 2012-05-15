@@ -146,21 +146,23 @@ private
             length = nil
             zstream = Zlib::Inflate.new(-Zlib::MAX_WBITS)
             response.read_body do |chunk|
-              begin
-                unless local_file_header #first chunk
-                  local_file_header = chunk.unpack('VvvvvvVVVvv')
-                  offset = 30+local_file_header[9]+local_file_header[10]
-                  length = local_file_header[local_file_header[3] == 0 ? 8 : 7]
-                  chunk.slice! 0, offset
-                end
-                if length > 0
-                  pipew << zstream.inflate(chunk.slice(0, length))
+              unless local_file_header #first chunk
+                local_file_header = chunk.unpack('VvvvvvVVVvv')
+                offset = 30+local_file_header[9]+local_file_header[10]
+                length = local_file_header[local_file_header[3] == 0 ? 8 : 7]
+                chunk.slice! 0, offset
+              end
+              if length > 0
+                unzipped_chunk = zstream.inflate(chunk.slice(0, length))
+                begin
+                  pipew << unzipped_chunk
+                rescue Exception => e
+                  puts "error while parsing \"#{unzipped_chunk}\": #{e.class.name} : #{e.message}"
+                  puts "#{length} more to be processed"
+                  e.backtrace.each { |l| $stderr.puts l } if %w(WARN ERROR).include? ENV['LOG_LEVEL']
+                ensure
                   length -= chunk.length
                 end
-              rescue Exception => e
-                puts "error while parsing \"#{chunk}\": #{e.class.name} : #{e.message}"
-                puts "#{length} more to be processed"
-                e.backtrace.each { |l| $stderr.puts l } if %w(WARN ERROR).include? ENV['LOG_LEVEL']
               end
             end
           end
