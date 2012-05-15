@@ -155,7 +155,11 @@ private
               if length > 0
                 unzipped_chunk = zstream.inflate(chunk.slice(0, length))
                 begin
-                  pipew << unzipped_chunk.force_encoding("UTF-8").encode(:xml => :text)
+                  pipew << unzipped_chunk.encode('UTF-8',
+                                  :invalid => :replace,
+                                  :undef   => :replace,
+                                  :replace => ''
+                              ).tr("\u0000-\u001f\u007f\u2028", '')
                 rescue Exception => e
                   puts "error while parsing \"#{unzipped_chunk[0,20]}\": #{e.class.name} : #{e.message}"
                   puts "#{length} more to be processed"
