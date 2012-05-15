@@ -155,7 +155,7 @@ private
               if length > 0
                 unzipped_chunk = zstream.inflate(chunk.slice(0, length))
                 begin
-                  pipew << unzipped_chunk
+                  pipew << unzipped_chunk.force_encoding("UTF-8")
                 rescue Exception => e
                   puts "error while parsing \"#{unzipped_chunk}\": #{e.class.name} : #{e.message}"
                   puts "#{length} more to be processed"
